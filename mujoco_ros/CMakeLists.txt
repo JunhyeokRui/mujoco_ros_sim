@@ -10,8 +10,8 @@ find_package(catkin REQUIRED COMPONENTS
   eigen_conversions
 )
 
-find_package(tocabi_lib COMPONENTS)
-IF(tocabi_lib_FOUND)
+find_package(dyros_bolt_lib COMPONENTS)
+IF(dyros_bolt_lib_FOUND)
  message(" -- shm mode enabled" )
    ADD_DEFINITIONS(-DCOMPILE_SHAREDMEMORY)
 ENDIF()
@@ -36,9 +36,9 @@ link_directories(
   ${MUJOCO_PATH}/bin
 )
 
-IF(tocabi_lib_FOUND)
+IF(dyros_bolt_lib_FOUND)
 include_directories(
-  ${tocabi_lib_INCLUDE_DIRS}
+  ${dyros_bolt_lib_INCLUDE_DIRS}
 )
 ENDIF()
 

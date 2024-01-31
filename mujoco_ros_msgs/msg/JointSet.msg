@@ -2,9 +2,9 @@ Header header
 float64 time
 
 
-int32 MODE
+int32 CONTROL_MODE
 float64[] position
 float64[] torque
 
-# MODE 0 = POSITION
-# MODE 1 = TORQUE
+# CONTROL_MODE 0 = POSITION
+# CONTROL_MODE 1 = TORQUE

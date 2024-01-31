@@ -927,6 +927,7 @@ struct _mjModel
     mjtNum*   key_act;              // key activation                           (nkey x na)
     mjtNum*   key_mpos;             // key mocap position                       (nkey x 3*nmocap)
     mjtNum*   key_mquat;            // key mocap quaternion                     (nkey x 4*nmocap)
+    
 
     // names
     int*      name_bodyadr;         // body name pointers                       (nbody x 1)

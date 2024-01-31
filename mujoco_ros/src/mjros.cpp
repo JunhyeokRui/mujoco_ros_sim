@@ -32,6 +32,7 @@ void c_reset()
     profilerupdate();
     sensorupdate();
     updatesettings();
+    
     if (use_shm)
     {
 #ifdef COMPILE_SHAREDMEMORY
@@ -66,9 +67,9 @@ void jointset_callback(const mujoco_ros_msgs::JointSetConstPtr &msg)
     }
     else
     {
-        //MODE 0 position
-        //MODE 1 torque
-        if (msg->MODE == 1)
+        //CONTROL_MODE 0 position
+        //CONTROL_MODE 1 torque
+        if (msg->CONTROL_MODE == 1)
         {
             if (joint_set_msg_.torque.size() == m->nu)
             {
@@ -80,7 +81,7 @@ void jointset_callback(const mujoco_ros_msgs::JointSetConstPtr &msg)
                 ROS_ERROR("TORQUE_MODE :::: Actuator Size Not match ");
             }
         }
-        else if (msg->MODE == 0)
+        else if (msg->CONTROL_MODE == 0)
         {
             if (joint_set_msg_.torque.size() == m->nu)
             {
@@ -97,34 +98,34 @@ void jointset_callback(const mujoco_ros_msgs::JointSetConstPtr &msg)
 
 void sim_command_callback(const std_msgs::StringConstPtr &msg)
 {
-    std::cout << "MSG FROM CONTROLLER " << msg->data << std::endl;
+    std::cout << " MSG FROM CONTROLLER " << msg->data << std::endl;
 
     if (msg->data == "RESET")
     {
 
         controller_reset_check = false;
-        std::cout << "RESET CHECK COMPLETE " << std::endl;
+        std::cout << " RESET CHECK COMPLETE " << std::endl;
     }
     else if (msg->data == "INIT")
     {
         controller_init_check = false;
-        std::cout << "INIT CHECK COMPLETE " << std::endl;
+        std::cout << " INIT CHECK COMPLETE " << std::endl;
     }
     else if (msg->data == "pause")
     {
         //c_pause();
         settings.run = !settings.run;
-        std::cout << "SIM PAUSED by msg" << std::endl;
+        std::cout << " SIM PAUSED by msg" << std::endl;
     }
     else if (msg->data == "mjreset")
     {
         reset_request = true;
-        std::cout << "SIM RESET by msg" << std::endl;
+        std::cout << " SIM RESET by msg" << std::endl;
     }
     else if (msg->data == "mjslowmotion")
     {
         //c_slowmotion();
-        std::cout << "SIM slowmotion by msg" << std::endl;
+        std::cout << " SIM slowmotion by msg" << std::endl;
     }
 }
 void rosPollEvents()
@@ -325,10 +326,39 @@ void state_publisher()
 
         mj_shm_->statusWriting = true;
 
-        std::copy(d->qpos + 7, d->qpos + 40, mj_shm_->pos);
-        std::copy(d->qvel + 6, d->qvel + 39, mj_shm_->vel);
-        std::copy(d->qacc + 6, d->qacc + 39, mj_shm_->torqueActual);
+        std::copy(d->qpos + 7, d->qpos + 13, mj_shm_->pos);
+        std::copy(d->qvel + 6, d->qvel + 12, mj_shm_->vel);
+        std::copy(d->qacc + 6, d->qacc + 12, mj_shm_->torqueActual);
+        std::copy(d->qvel, d->qvel + 6, mj_shm_->vel_virtual_cc);
+//rui - for debug start
+        // std::cout << "d->qpos" << std::endl;
+        // for (int i = 7; i < 13; ++i) {
+        //     const auto& element = d->qpos[i];
+        //     std::cout << element << " ";
+        // }
+        // std::cout << std::endl;
 
+        // std::cout << "mj_shm_->pos" << std::endl;
+        // for (const auto& element : mj_shm_->pos) {
+        //     std::cout << element << " ";
+        // }
+        // std::cout << std::endl;
+
+
+        // std::cout << "d->qvel" << std::endl;
+        // for (int i = 6; i < 12; ++i) {
+        //     const auto& element = d->qvel[i];
+        //     std::cout << element << " ";
+        // }
+        // std::cout << std::endl;
+
+        // std::cout << "mj_shm_->vel" << std::endl;
+        // for (const auto& element : mj_shm_->vel) {
+        //     std::cout << element << " ";
+        // }
+        // std::cout << std::endl;
+//rui - for debug end
+        
         //memcpy(&mj_shm_->pos, &d->qpos[7], m->na * sizeof(float));
         //memcpy(&mj_shm_->vel, &d->qvel[6], m->na * sizeof(float));
         //memcpy(&mj_shm_->torqueActual, &d->qacc[6], m->na * sizeof(float));
@@ -337,6 +367,58 @@ void state_publisher()
 
         //std::copy(d->qpos + 4, d->qpos + 7, mj_shm_->pos_virtual + 3);
 
+
+//rui - copy link pose
+        
+        mj_shm_->base_pos_sim[0] = d->xpos[3 ];
+        mj_shm_->base_pos_sim[1] = d->xpos[3 + 1];
+        mj_shm_->base_pos_sim[2] = d->xpos[3 + 2];
+        std::cout << "xpos" << std::endl;
+        std::cout << d->xpos[3] << ", " << d->xpos[3+1] << ", " << d->xpos[3+2] << std::endl;
+        std::cout << "qpos" << std::endl;
+        std::cout << d->qpos[0] << ", " << d->qpos[1] << ", " << d->qpos[2] << ", " << d->qpos[3] << ", " << d->qpos[4] << ", " << d->qpos[5] << std::endl;
+        // std::cout << "qvel" << std::endl;
+        // std::cout << d->qvel[0] << ", " << d->qvel[1] << ", " << d->qvel[2] << ", " << d->qvel[3] << ", " << d->qvel[4] << ", " << d->qvel[5] << std::endl;
+
+//rui - copy contacts
+
+        //rui - LFRF contact state
+        mj_shm_->contact_sim_LF = 0;
+        mj_shm_->contact_sim_RF = 0;
+
+        if (d->ncon > 0)
+        {   
+
+            for (auto i = 0; i < d->ncon; i++)
+            {
+                mjContact* contacts_ = &(d->contact[i]); // Get pointer to the contact
+
+                // Get geometry IDs from the contact
+                int geomId1 = contacts_->geom1;
+                int geomId2 = contacts_->geom2;
+
+                // Map geometry IDs to body/link IDs
+                int bodyId1 = m->geom_bodyid[geomId1];
+                int bodyId2 = m->geom_bodyid[geomId2];
+
+                if (bodyId2 == 5)
+                {
+                    mj_shm_->contact_sim_LF = 1;
+                }
+                if (bodyId2 == 9)
+                {
+                    mj_shm_->contact_sim_RF = 1;
+                }
+            }
+        }
+
+
+        // mj_shm_->contact_virtual = d->contact;
+//rui - base quaternion
+        const int base_index = mj_name2id(m, mjOBJ_BODY, "base_link");
+        for (int i = 0; i < 4; ++i) {
+            mj_shm_->base_link_xquat[i] = static_cast<float>(d->xquat[4 * base_index + i + 1]);
+        }
         mj_shm_->pos_virtual[0] = d->qpos[0];
         mj_shm_->pos_virtual[1] = d->qpos[1];
         mj_shm_->pos_virtual[2] = d->qpos[2];
@@ -344,16 +426,21 @@ void state_publisher()
         mj_shm_->pos_virtual[4] = d->qpos[5];
         mj_shm_->pos_virtual[5] = d->qpos[6];
         mj_shm_->pos_virtual[6] = d->qpos[3];
-
         for (int i = 0; i < m->nsensor; i++)
         {
 
             std::string sensor_name = sensor_state_msg_.sensor[i].name;
-            if (sensor_name == "Acc_Pelvis_IMU")
+            if (sensor_name == "Acc_base_link_IMU")
             {
-                mj_shm_->imu_acc[0] = d->sensordata[m->sensor_adr[8] + 0];
-                mj_shm_->imu_acc[1] = d->sensordata[m->sensor_adr[8] + 1];
-                mj_shm_->imu_acc[2] = d->sensordata[m->sensor_adr[8] + 2];
+                const int accelerometer_index = mj_name2id(m, mjOBJ_SENSOR, "Acc_base_link_IMU");
+                const int gyroscope_index = mj_name2id(m, mjOBJ_SENSOR, "Gyro_base_link_IMU");
+                for (int j = 0; j < 3; j++)
+                {
+                    mj_shm_->imu_acc[j] = d->sensordata[m->sensor_adr[accelerometer_index] + j];
+                    mj_shm_->imu_gyro[j] = d->sensordata[m->sensor_adr[gyroscope_index] + j];
+                }
+                
+
             }
             else if (sensor_name == "LF_Force_sensor")
             {
@@ -500,8 +587,10 @@ void mycontroller(const mjModel *m, mjData *d)
                 }
                 cmd_rcv = true;
                 //std::copy(mj_shm_->torqueCommand, mj_shm_->torqueCommand + m->nu, ctrl_command);
+                
                 for (int i = 0; i < m->nu; i++)
                     ctrl_command_temp_[i] = mj_shm_->torqueCommand[i];
+                
 #else
                 std::cout << "WARNING : Getting command, while SHM_NOT_COMPILED " << std::endl;
 #endif
@@ -516,6 +605,15 @@ void mycontroller(const mjModel *m, mjData *d)
             ctrl_cmd_que_.push_back(ctrl_command_temp_);
 
             std::copy(ctrl_cmd_que_[0].begin(), ctrl_cmd_que_[0].end(), ctrl_command);
+            
+//rui - for debug start
+            // std::cout << "ctrl_command" << std::endl;
+            // for (int i = 0; i < 20; ++i) {
+            //     const auto& element = ctrl_command[i];
+            //     std::cout << element << " ";
+            // }
+            // std::cout << std::endl;
+//rui - for debug end
 
             while (ctrl_cmd_que_.size() > com_latency)
             {
@@ -527,7 +625,15 @@ void mycontroller(const mjModel *m, mjData *d)
             if (!settings.controlui)
             {
                 if (cmd_rcv)
-                {
+                {   
+//rui - for debug start
+                    // std::cout << "d->ctrl" << std::endl;
+                    // for (int i = 0; i < 20; ++i) {
+                    //     const auto& element = d->ctrl[i];
+                    //     std::cout << element << " ";
+                    // }
+                    // std::cout << std::endl;
+//rui - for debug end
                     mju_copy(d->ctrl, ctrl_command, m->nu);
                 }
                 if (custom_ft_applied)
