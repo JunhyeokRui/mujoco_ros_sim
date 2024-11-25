@@ -61,6 +61,10 @@ mjvFigure figtimer;
 mjvFigure figsize;
 mjvFigure figsensor;
 
+mjvGeom* arrow;
+void arrowshow(mjvGeom* arrow);
+void makeArrow(mjvGeom* arrow);
+
 // OpenGL rendering and UI
 GLFWvidmode vmode;
 int windowpos[2];

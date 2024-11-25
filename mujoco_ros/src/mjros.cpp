@@ -2105,6 +2105,83 @@ void uiEvent(mjuiState *state)
     }
 }
 
+void arrowshow(mjvGeom* arrow)
+{
+    arrow = scn.geoms + scn.ngeom; 
+    makeArrow(arrow);
+    scn.ngeom++;
+
+    mjtNum force_vec[3] = {-applied_ext_force_[1], applied_ext_force_[0], 0.0};
+    double force = mju_normalize3(force_vec);
+    double arrow_length_ = 1.5;
+    double theta = atan2(-applied_ext_force_[1],applied_ext_force_[0]);
+
+    if(force > 0.0 && (applied_ext_force_[0] == 0.0 || applied_ext_force_[1] == 0.0))
+    {
+        arrow->size[0] = 0.04f;
+        arrow->size[1] = 0.04f;
+        arrow->size[2] = arrow_length_;
+
+        arrow->pos[0] = d->xpos[3 * force_appiedd_link_idx_ + 0] - 0.5*arrow_length_*mju_sign(force_vec[1]);
+        arrow->pos[1] = d->xpos[3 * force_appiedd_link_idx_ + 1] + 0.5*arrow_length_*mju_sign(force_vec[0]);
+        arrow->pos[2] = d->xpos[3 * force_appiedd_link_idx_ + 2] + 0.2; // You can adjust the z position of the arrow by modifying the constant.
+    }
+    else if (force > 0.0)
+    {
+        arrow->size[0] = 0.04f;
+        arrow->size[1] = 0.04f;
+        arrow->size[2] = arrow_length_;
+
+        arrow->pos[0] = d->xpos[3 * force_appiedd_link_idx_ + 0] - 0.5*arrow_length_*abs(cos(theta))*mju_sign(force_vec[1]);
+        arrow->pos[1] = d->xpos[3 * force_appiedd_link_idx_ + 1] + 0.5*arrow_length_*abs(sin(theta))*mju_sign(force_vec[0]);
+        arrow->pos[2] = d->xpos[3 * force_appiedd_link_idx_ + 2] + 0.2;
+    }
+    else
+    {
+        arrow->size[0] = 0.0;
+        arrow->size[1] = 0.0;
+        arrow->size[2] = 0.0;
+    }      
+
+    mjtNum quat[4], mat[9];
+    
+    mju_axisAngle2Quat(quat, force_vec, 0.5 * mjPI * ((force > 0) ? 1 : -1));
+    mju_quat2Mat(mat, quat);
+    mju_n2f(arrow->mat, mat, 9);
+
+    // std::cout << "applied_ext_force_ " << applied_ext_force_[0] << " " << applied_ext_force_[1] << " " << applied_ext_force_[2] << std::endl;
+}
+
+void makeArrow(mjvGeom* arrow)
+{
+    
+       arrow->type = mjGEOM_ARROW;
+       arrow->dataid = -1;
+       arrow->objtype = mjOBJ_SITE;
+       arrow->objid = -1;
+       arrow->category = mjCAT_DECOR;
+       arrow->texid = -1;
+       arrow->texuniform = 0;
+       arrow->texrepeat[0] = 1;
+       arrow->texrepeat[1] = 1;
+       arrow->emission = 0;
+       arrow->specular = 0.5;
+       arrow->shininess = 0.5;
+       arrow->reflectance = 0;
+       arrow->label[0] = 0;
+       arrow->size[0] = 0.04f;
+       arrow->size[1] = 0.04f;
+       arrow->size[2] = 1.0f;
+       arrow->rgba[0] = 1.0f;
+       arrow->rgba[1] = 0.1f;
+       arrow->rgba[2] = 0.1f;
+       arrow->rgba[3] = 1.0f;
+       arrow->pos[0] = d->xpos[3*force_appiedd_link_idx_ + 0];
+       arrow->pos[1] = d->xpos[3*force_appiedd_link_idx_ + 1];
+       arrow->pos[2] = d->xpos[3*force_appiedd_link_idx_ + 2];
+}
+
+
 //--------------------------- rendering and simulation ----------------------------------
 
 // sim thread synchronization
@@ -2406,6 +2483,8 @@ void init()
     // init abstract visualization
     mjv_defaultCamera(&cam);
     mjv_defaultOption(&vopt);
+    
+    vopt.flags[mjVIS_PERTFORCE] = 1;    
 
     // custum init option
     vopt.geomgroup[2] = false;
